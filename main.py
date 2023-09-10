@@ -21,10 +21,10 @@ def form():
 @app.post("/results/")
 def results():
     text = request.form
-    data = hh_api.func_parser(text["query_string"])
-    print(data)
-    return render_template("results.html", key=text["query_string"], data=data)
+    requirements = hh_api.func_parser(text["query_string"])
+    data = hh_api.func_sql(text["query_string"], requirements[:5])
+    return render_template("results.html", key=text["query_string"], data=requirements[:5])
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
