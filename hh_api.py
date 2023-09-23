@@ -3,7 +3,7 @@ import pprint
 import json
 from fake_useragent import UserAgent
 import sqlite3
-
+from SQLAlchemy import Session, Input_text, Key_skills, Input_text_Key_skills
 
 def func_converter_curr(curr, amount):
     text = requests.get('https://www.cbr-xml-daily.ru/daily_json.js').text # запрос данных по валютам
@@ -133,40 +133,72 @@ def func_parser(text):
 
     return result["requirements"]
 
-def func_sql(text, requirements):
-    conn = sqlite3.connect('hh.sqlite')
-    cur = conn.cursor()
+# def func_sql(text, requirements):
+#     conn = sqlite3.connect('hh.sqlite')
+#     cur = conn.cursor()
+#
+#     cur.execute("SELECT * FROM input_text WHERE input_text=?", (text,))
+#     answer = cur.fetchone()
+#
+#     if answer is None:
+#         cur.execute("INSERT INTO input_text VALUES(null, ?)", (text,))
+#
+#     cur.execute("SELECT * FROM input_text WHERE input_text=?", (text,))
+#     answer = cur.fetchone()
+#     input_id = answer[0]
+#
+#     for req in requirements:
+#         cur.execute("SELECT * FROM key_skills WHERE key_skills=?", (req["name"],))
+#         answer = cur.fetchone()
+#
+#         if answer is None:
+#             cur.execute("INSERT INTO key_skills VALUES(null, ?)", (req["name"],))
+#
+#         cur.execute("SELECT * FROM key_skills WHERE key_skills=?", (req["name"],))
+#         answer = cur.fetchone()
+#         skill_id = answer[0]
+#
+#         cur.execute("SELECT * FROM input_text_key_skills WHERE input_text_key_skills.id_input_text = ? AND input_text_key_skills.id_key_skills = ?", (input_id, skill_id))
+#         res = cur.fetchone()
+#         if res:
+#             cur.execute("UPDATE input_text_key_skills SET count = ?, percent = ? WHERE input_text_key_skills.id_input_text = ? AND input_text_key_skills.id_key_skills = ?", (req["count"], req["percent"], input_id, skill_id))
+#         else:
+#             cur.execute("INSERT INTO input_text_key_skills VALUES(null, ?, ?, ?, ?)", (input_id, skill_id, req["count"], req["percent"]))
+#
+#     conn.commit()
+#     conn.close()
 
-    cur.execute("SELECT * FROM input_text WHERE input_text=?", (text,))
-    answer = cur.fetchone()
+def func_sql(text, requirements):
+
+    cur = Session()
+
+    answer = cur.query(Input_text).filter_by(input_text=text).one_or_none()
 
     if answer is None:
-        cur.execute("INSERT INTO input_text VALUES(null, ?)", (text,))
+        cur.add(Input_text(input_text=text))
+        answer = cur.query(Input_text).filter_by(input_text=text).first()
 
-    cur.execute("SELECT * FROM input_text WHERE input_text=?", (text,))
-    answer = cur.fetchone()
-    input_id = answer[0]
+    input_id = answer.id
 
     for req in requirements:
-        cur.execute("SELECT * FROM key_skills WHERE key_skills=?", (req["name"],))
-        answer = cur.fetchone()
+        skill_answer = cur.query(Key_skills).filter_by(key_skills=req["name"]).one_or_none()
 
-        if answer is None:
-            cur.execute("INSERT INTO key_skills VALUES(null, ?)", (req["name"],))
+        if skill_answer is None:
+            cur.add(Key_skills(key_skills=req["name"]))
+            skill_answer = cur.query(Key_skills).filter_by(key_skills=req["name"]).first()
 
-        cur.execute("SELECT * FROM key_skills WHERE key_skills=?", (req["name"],))
-        answer = cur.fetchone()
-        skill_id = answer[0]
+        skill_id = skill_answer.id
 
-        cur.execute("SELECT * FROM input_text_key_skills WHERE input_text_key_skills.id_input_text = ? AND input_text_key_skills.id_key_skills = ?", (input_id, skill_id))
-        res = cur.fetchone()
-        if res:
-            cur.execute("UPDATE input_text_key_skills SET count = ?, percent = ? WHERE input_text_key_skills.id_input_text = ? AND input_text_key_skills.id_key_skills = ?", (req["count"], req["percent"], input_id, skill_id))
+        text_skill_answer = cur.query(Input_text_Key_skills).filter_by(id_input_text=input_id, id_key_skills=skill_id).one_or_none()
+
+        if text_skill_answer:
+            text_skill_answer.count = req["count"]
+            text_skill_answer.percent = req["percent"]
         else:
-            cur.execute("INSERT INTO input_text_key_skills VALUES(null, ?, ?, ?, ?)", (input_id, skill_id, req["count"], req["percent"]))
+            cur.add(Input_text_Key_skills(id_input_text=input_id, id_key_skills=skill_id,count=req["count"],percent=req["percent"]))
 
-    conn.commit()
-    conn.close()
+    cur.commit()
+    cur.close()
 
 if __name__ == "__main__":
-    print(func_parser("HTML"))
+    func_sql("Python", [{"name": "Python", "count": 87, "percent": 14.8}, {"name": "PostgreSQL", "count": 40, "percent": 6.8}, {"name": "Git", "count": 36, "percent": 6.12}, {"name": "Linux", "count": 31, "percent": 5.27}, {"name": "SQL", "count": 27, "percent": 4.59}])
